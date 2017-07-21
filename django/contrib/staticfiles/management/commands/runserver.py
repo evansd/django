@@ -1,8 +1,10 @@
 from django.conf import settings
-from django.contrib.staticfiles.handlers import StaticFilesHandler
 from django.core.management.commands.runserver import (
     Command as RunserverCommand,
 )
+
+
+WHITENOISE_PATH = 'whitenoise.middleware.WhiteNoiseMiddleware'
 
 
 class Command(RunserverCommand):
@@ -21,12 +23,15 @@ class Command(RunserverCommand):
 
     def get_handler(self, *args, **options):
         """
-        Return the static files serving handler wrapping the default handler,
-        if static files should be served. Otherwise return the default handler.
+        If static files should be served, inject WhiteNoise into the middleware
+        list if it's not already present. Otherwise do nothing and return the
+        default handler.
         """
-        handler = super().get_handler(*args, **options)
         use_static_handler = options['use_static_handler']
         insecure_serving = options['insecure_serving']
         if use_static_handler and (settings.DEBUG or insecure_serving):
-            return StaticFilesHandler(handler)
-        return handler
+            if WHITENOISE_PATH not in settings.MIDDLEWARE:
+                settings.WHITENOISE_USE_FINDERS = True
+                settings.WHITENOISE_AUTOREFRESH = True
+                settings.MIDDLEWARE.insert(0, WHITENOISE_PATH)
+        return super().get_handler(*args, **options)
